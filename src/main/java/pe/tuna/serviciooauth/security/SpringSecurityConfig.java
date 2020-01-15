@@ -3,6 +3,7 @@ package pe.tuna.serviciooauth.security;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
@@ -16,6 +17,10 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
     @Autowired
     private UserDetailsService usuarioService;
 
+    // Inyectamos el evento de error y success al login
+    @Autowired
+    private AuthenticationEventPublisher eventPublisher;
+
     // lo que retorna el metodo es lo que se va a registrar como beans de spring
     @Bean
     public BCryptPasswordEncoder passwordEncoder(){
@@ -27,7 +32,8 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
     @Override
     @Autowired
     protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-        auth.userDetailsService(usuarioService).passwordEncoder(passwordEncoder());
+        auth.userDetailsService(usuarioService).passwordEncoder(passwordEncoder())
+        .and().authenticationEventPublisher(eventPublisher);
     }
 
     // Configuramos el authentication manager y lo tenemos que registrar tambien como componente de spring para luego
