@@ -1,5 +1,6 @@
 package pe.tuna.serviciooauth.security.event;
 
+import brave.Tracer;
 import feign.FeignException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,9 @@ public class AuthenticationSuccessErrorHandler implements AuthenticationEventPub
     @Autowired
     private IUsuarioSerice usuarioService;
 
+    @Autowired
+    private Tracer tracer;
+
     @Override
     public void publishAuthenticationSuccess(Authentication authentication) {
         UserDetails user = (UserDetails) authentication.getPrincipal();
@@ -51,22 +55,29 @@ public class AuthenticationSuccessErrorHandler implements AuthenticationEventPub
         logger.error(mensaje);
 
         try {
-            Usuario usuario = usuarioService.findByUsername(authentication.getName());
+            StringBuilder errors = new StringBuilder();
+            errors.append(mensaje);
 
+            Usuario usuario = usuarioService.findByUsername(authentication.getName());
             if (usuario.getIntentos() == null) {
                 usuario.setIntentos(0);
             }
-
 
             logger.info("Intentos actual es de: " + usuario.getIntentos());
             usuario.setIntentos(usuario.getIntentos() + 1);
             logger.info("Intentos despues es de: " + usuario.getIntentos());
 
+            errors.append(" - Intentos del login: " + usuario.getIntentos());
+
             if (usuario.getIntentos() >= 3) {
-                logger.error(String.format("El usuario %s deshabilitado por maximo numero de intentos.", usuario.getUsername()));
+                String errorMaxIntentos = String.format("El usuario %s deshabilitado por maximo numero de intentos.", usuario.getUsername());
+                logger.error(errorMaxIntentos);
+                errors.append(" - " + errorMaxIntentos);
                 usuario.setEnabled(false);
             }
             usuarioService.update(usuario, usuario.getId());
+
+            tracer.currentSpan().tag("error.mensaje", errors.toString());
 
         } catch (FeignException ex) {
             logger.error(String.format("El usuario %s no existe en el sistema", authentication.getName()));

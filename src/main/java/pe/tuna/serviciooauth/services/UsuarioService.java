@@ -1,5 +1,6 @@
 package pe.tuna.serviciooauth.services;
 
+import brave.Tracer;
 import feign.FeignException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +28,10 @@ public class UsuarioService implements IUsuarioSerice, UserDetailsService {
     @Autowired
     private IUsuarioFeignClient client;
 
+    // Para aprovechar Zipkin y su seguimiento de traza vamos a agregar algunos tags
+    @Autowired
+    private Tracer tracer;
+
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 
@@ -43,8 +48,10 @@ public class UsuarioService implements IUsuarioSerice, UserDetailsService {
             return new User(usuario.getUsername(), usuario.getPassword(), usuario.getEnabled(),
                     true, true, true, authorities);
         } catch (FeignException e) {
-            logger.error("Error en el login, no existe el usuario '" + username + "' en sistema");
-            throw new UsernameNotFoundException("Error en el login, no existe el usuario '" + username + "' en sistema");
+            String error = "Error en el login, no existe el usuario '" + username + "' en sistema";
+            logger.error(error);
+            tracer.currentSpan().tag("error.mensaje" , error + ": " + e.getMessage());
+            throw new UsernameNotFoundException(error);
         }
     }
 
